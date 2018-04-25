@@ -5,6 +5,11 @@ using UnityEngine;
 using UnityStandardAssets.Characters.FirstPerson;
 using UnityEngine.SceneManagement;
 
+/* Inventory handles the avatar's side of the IWQ model
+ * as well as the player's interactions with the game world,
+ * pausing/resuming the game, and UI elements
+ */
+
 public class Inventory : MonoBehaviour {
 
     private static GameObject chattingTo;
@@ -94,6 +99,7 @@ public class Inventory : MonoBehaviour {
         StartCoroutine(FadeOutTimeLabel());
     }
 
+    //load the quests from QuestManager so they can show up in the pause menu
     public void InitializeQuests()
     {
         foreach(string questName in QuestManager.Quests().Keys)
@@ -102,6 +108,7 @@ public class Inventory : MonoBehaviour {
         }
     }
 
+    //update the text shown with a quest in the "Quests" section of the pause menu
     public void UpdateDescription(string questName, string description)
     {
         quests[questName] = description;
@@ -109,14 +116,16 @@ public class Inventory : MonoBehaviour {
 	
 	// Update is called once per frame
 	void Update () {
+        //check for decreased health (i.e. a zombie attacking the player)
         if (Health() != LastHealth())
         {
             if(Health() < LastHealth()) StartCoroutine(ShowDamage());
             LastHealth(Health());
             healthBar.GetComponent<UnityEngine.UI.Slider>().value = (Health() < 0 ? 0 : Health());
-            if (Health() <= 0 && !gameOver) GameOver("You died!", false);
+            if (Health() <= 0 && !gameOver) GameOver("You died!", false); //game over if the player ends up on 0 or less health
         }
 
+        //keep the timer ticking along if the game is running
         if (!GamePaused() && !gameOver)
         {
             timePassed += Time.deltaTime;
@@ -124,11 +133,13 @@ public class Inventory : MonoBehaviour {
             int minutesLeft = 9 - Mathf.FloorToInt(timePassed / 60f);
             int secondsLeft = 59 - Mathf.RoundToInt(timePassed) % 60;
 
+            //display the time left in top corner
             timer.text = minutesLeft.ToString() + ":" + (secondsLeft < 10 ? (secondsLeft == 0 ? "00" : "0" + secondsLeft.ToString()) : secondsLeft.ToString());
 
             if (timePassed >= 600) GameOver("You ran out of time!", false);
         }
 
+        //pause/resume the game
         if (Input.GetKeyDown(KeyCode.E))
         {
             if (!GamePaused())
@@ -141,6 +152,7 @@ public class Inventory : MonoBehaviour {
             }
         }
 
+        //if the game is running, check to see if the player can/does interact with anything
         if (!GamePaused()) CheckForInteractions();
 
         //play a sound if the player shoots the gun
@@ -148,6 +160,7 @@ public class Inventory : MonoBehaviour {
             GetComponent<AudioSource>().PlayOneShot(gunShot);
     }
 
+    //pause the game and show the menu
     private void OpenPauseMenu()
     {
         PauseGame();
@@ -156,6 +169,7 @@ public class Inventory : MonoBehaviour {
         ShowQuests();
     }
 
+    //resume the game and hide the menu
     public void ClosePauseMenu()
     {
         pausePanel.SetActive(false);
@@ -163,6 +177,7 @@ public class Inventory : MonoBehaviour {
         StartCoroutine(FadeOutTimeLabel());
     }
 
+    //fade out the text next to the time remaining so it doesn't distract the player
     private IEnumerator FadeOutTimeLabel()
     {
         yield return new WaitForSeconds(6.5f);
@@ -175,6 +190,7 @@ public class Inventory : MonoBehaviour {
         timeRemainingLabel.color = new Color(1f, 1f, 1f, 0f);
     }
 
+    //pause all game objects and show the cursor
     private void PauseGame()
     {
         gamePaused = true;
@@ -198,6 +214,7 @@ public class Inventory : MonoBehaviour {
         Cursor.lockState = CursorLockMode.None;
     }
 
+    //resume all game objects and hide the cursor
     public void ResumeGame()
     {
         gamePaused = false;
@@ -226,6 +243,7 @@ public class Inventory : MonoBehaviour {
         pausePanel.SetActive(false);
     }
 
+    //show all the items in the inventory
     public void OpenBackpack()
     {
         menuText.fontSize = 24;
@@ -234,12 +252,14 @@ public class Inventory : MonoBehaviour {
         menuText.text = "<b>Inventory:</b>\n\n" + (backpackItems == "" ? "Your backpack is empty." : backpackItems);
     }
 
+    //show the text describing the controls
     public void ShowControls()
     {
         menuText.fontSize = 24;
         menuText.text = "Press \"W\" to move forward, \"S\" to move back, \"A\" to strafe left and \"D\" to strafe right.\n\nUse the mouse to look around.\n\nLeft click to shoot zombies or talk to people. Don't get too close to zombies or they'll attack!\n\nPress \"E\" to pause/resume the game.\n\nUse the spacebar to jump and hold \"Shift\" while moving to sprint.\n\nYou have 10 minutes - explore the world and interact with everything!";
     }
 
+    //show the current status of all quests
     public void ShowQuests()
     {
         menuText.fontSize = 19;
@@ -263,6 +283,7 @@ public class Inventory : MonoBehaviour {
         menuText.text = questText;
     }
 
+    //show the "about" text
     public void ShowAbout()
     {
         menuText.fontSize = 24;
@@ -299,14 +320,15 @@ public class Inventory : MonoBehaviour {
             {
                 if (Input.GetKeyDown(KeyCode.Mouse0) && somethingInFront.collider.gameObject.tag == "Zombie")
                 {
-                    somethingInFront.collider.gameObject.GetComponent<CombatManager>().Shot();
+                    somethingInFront.collider.gameObject.GetComponent<CombatManager>().Shot(); //shoot a zombie if one in crosshairs and mouse clicked
                 }
                 else if (Input.GetKeyDown(KeyCode.Mouse0) && somethingInFront.collider.gameObject.name == "Radio")
                 {
-                    somethingInFront.collider.gameObject.GetComponent<RadioController>().Louder();
+                    somethingInFront.collider.gameObject.GetComponent<RadioController>().Louder(); //make the radio louder if it's in the crosshairs and mouse clicked
                 }
                 else if (somethingInFront.collider.gameObject.tag == "Friendly" || somethingInFront.collider.gameObject.tag == "Idol")
                 {
+                    //make everything ready for chatting if the object is a friendly NPC or magic idol
                     crosshairs.enabled = false;
 
                     chattingTo = somethingInFront.collider.gameObject;
@@ -315,6 +337,7 @@ public class Inventory : MonoBehaviour {
                 }
                 else if (somethingInFront.collider.gameObject.tag == "Pickup")
                 {
+                    //make everything ready for picking up if the object is a pick-up
                     crosshairs.enabled = false;
                     chattingTo = somethingInFront.collider.gameObject;
 
@@ -326,7 +349,7 @@ public class Inventory : MonoBehaviour {
                         pickupObject.GetComponent<ChatManager>().SetConversation(pickupObject.GetComponent<PickupManager>().PickupMessage());
                     }
                 }
-                else crosshairs.enabled = true;
+                else crosshairs.enabled = true; //on any other collision, make sure the crosshairs are displayed
             }
 
             //interact with something far away
@@ -338,23 +361,23 @@ public class Inventory : MonoBehaviour {
             {
                 if (Input.GetKeyDown(KeyCode.Mouse0) && somethingInFront.collider.gameObject.tag == "Zombie")
                 {
-                    somethingInFront.collider.gameObject.GetComponent<CombatManager>().Shot();
+                    somethingInFront.collider.gameObject.GetComponent<CombatManager>().Shot(); //shoot zombie if it's in the crosshairs and mouse clicked
                 }
                 else if (Input.GetKeyDown(KeyCode.Mouse0) && somethingInFront.collider.gameObject.name == "Radio")
                 {
-                    somethingInFront.collider.gameObject.GetComponent<RadioController>().Louder();
+                    somethingInFront.collider.gameObject.GetComponent<RadioController>().Louder(); //make radio louder if it's in the crosshairs and mouse clicked
                 }
                 else if (somethingInFront.collider.gameObject.tag == "Friendly")
                 {
+                    //make sure player can't shoot friendly NPCs
                     crosshairs.enabled = false;
                 }
-                else crosshairs.enabled = true;
+                else crosshairs.enabled = true; //make sure crosshairs are enabled for all other collisions
             }
-
-            //get rid of the chatting option
         }
         else
         {
+            //get rid of the chatting option if no NPC, zombie, idol, or pick-up is hit by the raycast
             WorldState.CanChat(false);
             if (!(chattingTo == null))
             {
@@ -367,7 +390,7 @@ public class Inventory : MonoBehaviour {
                 crosshairs.enabled = true;
             }
 
-            if (!WorldState.CanChat() && !pausePanel.activeInHierarchy) crosshairs.enabled = true;
+            if (!WorldState.CanChat() && !pausePanel.activeInHierarchy) crosshairs.enabled = true; //make sure crosshairs are enabled
 
         }
     }
@@ -377,9 +400,11 @@ public class Inventory : MonoBehaviour {
         crosshairs.enabled = true;
     }
 
+    //getter/setter
     public static GameObject ChattingTo() { return chattingTo; }
     public static void ChattingTo(GameObject setTo) { chattingTo = setTo; }
 
+    //add a picked up item to the backpack
     public static void PickUp(string item, int number)
     {
         if (Carrying(item))
@@ -391,6 +416,7 @@ public class Inventory : MonoBehaviour {
         }
     }
 
+    //drop an item from the backpack
     public static void Drop(string item, int number)
     {
         if(Carrying(item))
@@ -400,32 +426,38 @@ public class Inventory : MonoBehaviour {
         }
     }
 
+    //return how many of an item the player is carrying
     public static int CarryingHowMany(string item)
     {
         return (Carrying(item) ? carrying[item] : 0);
     }
 
+    //is the player carrying "item"?
     private static bool Carrying(string item)
     {
         return carrying.ContainsKey(item);
     }
 
+    //return the whole backpack
     private static Dictionary<string, int> Backpack()
     {
         return carrying;
     }
 
+    //reduce health by "damage"
     public static void Hit(int damage)
     {
         health -= damage;
     }
 
+    //increase health by "byAmount" up to 100
     public static void Heal(int byAmount)
     {
         health += byAmount;
         if (Health() > 100) health = 100;
     }
 
+    //getters...
     public static int Health()
     {
         return health;
@@ -436,11 +468,13 @@ public class Inventory : MonoBehaviour {
         return lastHealth;
     }
 
+    //setter
     private void LastHealth(int val)
     {
         lastHealth = val;
     }
 
+    //show a red hitbox if the player is attacked, then fade it away
     private IEnumerator ShowDamage()
     {
         damagePanel.enabled = true;
@@ -457,17 +491,21 @@ public class Inventory : MonoBehaviour {
         damagePanel.enabled = false;
     }
 
+    //play the game over animation
     public void GameOver(string reason, bool win)
     {
         gameOver = true;
         allQuestsCompleted = win;
         PauseGame();
+
+        //play win/lose sound
         if (allQuestsCompleted)
         {
             AudioSource.PlayClipAtPoint(winSound, transform.localPosition);
         }
         else AudioSource.PlayClipAtPoint(loseSound, transform.localPosition);
 
+        //enable/disable UI elements
         timeRemainingLabel.enabled = false;
 
         pausePanel.SetActive(false);
@@ -475,6 +513,7 @@ public class Inventory : MonoBehaviour {
 
         gameOverCanvas.enabled = true;
 
+        //display game over text
         if(!allQuestsCompleted)
         {
             int questsCompleted = 0;
@@ -487,15 +526,20 @@ public class Inventory : MonoBehaviour {
         gameOverCanvas.GetComponentsInChildren<UnityEngine.UI.Text>()[1].text = reason;
         if (allQuestsCompleted) gameOverCanvas.GetComponentsInChildren<UnityEngine.UI.Text>()[0].text = "You Win!";
 
+        //disable the player
         GameObject.Find("FPSController").GetComponent<FirstPersonController>().enabled = false;
 
+        //print this to the log
         DataLog.Print("\"" + reason + "\" ::: Time left:= " + timer.text);
 
+        //then fade out to the main menu
         StartCoroutine(FadeToMenu(3f, 7f));
     }
 
+    //fade the screen to black over "inSeconds" seconds after waiting for "waitForSeconds" seconds then load the main menu scene
     private IEnumerator FadeToMenu(float inSeconds, float waitForSeconds)
     {
+        //get & enable UI elements
         UnityEngine.UI.Image fadePanel = gameOverCanvas.GetComponentsInChildren<UnityEngine.UI.Image>()[0];
         UnityEngine.UI.Text gameOverText = gameOverCanvas.GetComponentsInChildren<UnityEngine.UI.Text>()[0];
         UnityEngine.UI.Text reasonText = gameOverCanvas.GetComponentsInChildren<UnityEngine.UI.Text>()[1];
@@ -505,9 +549,11 @@ public class Inventory : MonoBehaviour {
         gameOverText.enabled = true;
         reasonText.enabled = true;
         
+        //change colour of game over text depending on win/lose
         Vector3 gameOverColour = (allQuestsCompleted ? new Vector3(131f, 248f, 109f) : new Vector3(200f, 40f, 0f));
         float gameOverAlpha = (allQuestsCompleted ? 200f : 240f);
 
+        //fade in the game over text
         for (float i = 0f; i < 1f; i += Time.deltaTime)
         {
             fadePanel.color = new Color((33f/255f), (33f / 255f), (33f / 255f), i * (170f/255f));
@@ -520,10 +566,12 @@ public class Inventory : MonoBehaviour {
         gameOverText.color = new Color(gameOverColour.x/255f, gameOverColour.y/255f, gameOverColour.z/255f, gameOverAlpha/255f);
         reasonText.color = Color.white;
         
+        //wait for player to read the info
         yield return new WaitForSeconds(waitForSeconds);
 
         opaquePanel.enabled = true;
         
+        //fade to black
         for (float i = 0f; i < 1f; i += Time.deltaTime)
         {
             opaquePanel.color = new Color(0f, 0f, 0f, i);
@@ -534,17 +582,20 @@ public class Inventory : MonoBehaviour {
         LoadMainMenu();
     }
 
+    //load the main menu scene
     public void LoadMainMenu()
     {
-        DataLog.Print("EXITED GAME at " + timer.text);
+        DataLog.Print("EXITED GAME at " + timer.text); //write to the log
         SceneManager.LoadScene("main");
     }
 
+    //getter
     public static bool GamePaused()
     {
         return gamePaused;
     }
 
+    //update "Quests" info...
     public void QuestStarted(string questName)
     {
         questUpdates.text += "Quest \"" + questName + "\" started\n";
@@ -557,16 +608,19 @@ public class Inventory : MonoBehaviour {
         StartCoroutine(FadeQuestUpdates());
     }
 
+    //tell the player that a quest has been started/completed, then fade out
     private IEnumerator FadeQuestUpdates()
     {
         questUpdates.color = new Color((131f / 255f), (248f / 255f), (109f / 255f), (200f / 255f));
 
-        string originalText = questUpdates.text;
-        AudioSource.PlayClipAtPoint(questUpdateSound, transform.localPosition);
-        yield return new WaitForSeconds(5f);
+        string originalText = questUpdates.text; //they may complete many quests in quick succession; this will be used later
+        AudioSource.PlayClipAtPoint(questUpdateSound, transform.localPosition); //play a sound to notify the player
+        yield return new WaitForSeconds(5f); //wait for player to read the update
 
+        //if they complete many quests in quick sucession, we don't want one fading out then another. Just wait for the latest coroutine to reach here before fading
         if(originalText == questUpdates.text)
         {
+            //fade the text out
             for (float i = 1f; i > 0f; i -= Time.deltaTime)
             {
                 if (originalText != questUpdates.text) break;
@@ -574,6 +628,7 @@ public class Inventory : MonoBehaviour {
                 yield return null;
             }
 
+            //hide the text
             if (originalText == questUpdates.text)
             {
                 questUpdates.color = new Color((131f / 255f), (248f / 255f), (109f / 255f), 0f);

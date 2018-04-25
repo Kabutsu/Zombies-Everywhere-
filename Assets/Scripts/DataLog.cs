@@ -7,6 +7,7 @@ public static class DataLog {
     private static StreamWriter writer;
     private const string FILENAME = "log.txt";
 
+    //create a log.txt file when the game starts
     public static void CreateNewLog()
     {
         try
@@ -33,6 +34,7 @@ public static class DataLog {
         }
     }
 
+    //append a line to the end of the log file
 	public static void Print(string message)
     {
         try

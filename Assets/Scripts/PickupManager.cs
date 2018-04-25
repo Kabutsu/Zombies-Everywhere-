@@ -28,19 +28,22 @@ public class PickupManager : MonoBehaviour {
 
     }
 
+    //put the item in the player's backpack and destroy the game object if needed
     public void Pickup()
     {
         canPickUp = false;
 
+        //if a health pack, restore health instead of putting in the backpack
         if(itemName == "healthPack")
         {
             Inventory.Heal(Mathf.RoundToInt(STANDARD_HEAL_AMOUNT * numberOfItems));
         } else
         {
-            Inventory.PickUp(itemName, numberOfItems);
+            Inventory.PickUp(itemName, numberOfItems); //put item in the backpack
         }
-        QuestManager.Query("ItemsChanged", "Pickup", new Dictionary<string, int>() { { itemName, numberOfItems } });
+        QuestManager.Query("ItemsChanged", "Pickup", new Dictionary<string, int>() { { itemName, numberOfItems } }); //query the QuestManager
 
+        //destroy the object if needed
         if (destroyAfterPickup)
         {
             GameObject.Find("FPSController").GetComponent<AudioSource>().volume = 0;
@@ -49,6 +52,7 @@ public class PickupManager : MonoBehaviour {
         }
     }
 
+    //picking up objects also shoots the gun; mute audio for a brief amount of time to mask this
     IEnumerator ManageAudio()
     {
         yield return new WaitForSeconds(0.3f);
@@ -60,6 +64,7 @@ public class PickupManager : MonoBehaviour {
         Destroy(gameObject);
     }
 
+    //show a pick up message
     public Stack<string> PickupMessage()
     {
         return new Stack<string>(new List<string>() {
@@ -68,6 +73,7 @@ public class PickupManager : MonoBehaviour {
         });
     }
 
+    //make a variable name more readable
     private string MoreReadable(string varName)
     {
         string readableVarName = varName;
@@ -86,16 +92,19 @@ public class PickupManager : MonoBehaviour {
         return readableVarName.Substring(0, 1).ToUpper() + readableVarName.Substring(1);
     }
 
+    //return a readable version of the item's name
     public string ItemName()
     {
         return MoreReadable(ItemNameAsVariable());
     }
 
+    //return the actual item's name
     public string ItemNameAsVariable()
     {
         return itemName;
     }
 
+    //getter...
     public bool CanPickUp()
     {
         return canPickUp;

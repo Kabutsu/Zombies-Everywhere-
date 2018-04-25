@@ -118,13 +118,13 @@ public class ChatManager : MonoBehaviour {
     public void PauseChat()
     {
         chatPaused = true;
-        if (gameObject.GetComponent<Animator>() != null) gameObject.GetComponent<Animator>().enabled = false;
+        if (gameObject.GetComponent<Animator>() != null) gameObject.GetComponent<Animator>().enabled = false; //pause animation when game paused
     }
 
     public void ResumeChat()
     {
         chatPaused = false;
-        if (gameObject.GetComponent<Animator>() != null) gameObject.GetComponent<Animator>().enabled = true;
+        if (gameObject.GetComponent<Animator>() != null) gameObject.GetComponent<Animator>().enabled = true; //resume animation when game resumed
     }
 
     private bool ChatPaused()

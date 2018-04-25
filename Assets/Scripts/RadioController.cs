@@ -15,12 +15,11 @@ public class RadioController : MonoBehaviour {
         radio = gameObject.GetComponent<AudioSource>();
         currentSong = songs[Random.Range(0, songs.Length)];
         radio.clip = currentSong;
-        radio.PlayOneShot(radio.clip);
+        radio.PlayOneShot(radio.clip); //start playing a random song
 	}
 	
-	// Update is called once per frame
 	void Update () {
-        //when the current song ends, play a different one
+        //when the current song ends, play a random different one
 		if(!radio.isPlaying)
         {
             AudioClip lastSong = currentSong;
@@ -34,6 +33,7 @@ public class RadioController : MonoBehaviour {
         }
 	}
 
+    //increase the volume
     public void Louder()
     {
         if (radio.volume < 1) radio.volume = radio.volume + 0.1f;

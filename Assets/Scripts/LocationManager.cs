@@ -23,6 +23,7 @@ public class LocationManager : MonoBehaviour {
 		
 	}
 
+    //update the player's location to this location
     private void OnTriggerEnter(Collider other)
     {
         if(player.GetComponent<Collider>().Equals(other))
@@ -32,6 +33,7 @@ public class LocationManager : MonoBehaviour {
         }
     }
 
+    //reset the player's location to default when they leave here
     private void OnTriggerExit(Collider other)
     {
         if (player.GetComponent<Collider>().Equals(other))

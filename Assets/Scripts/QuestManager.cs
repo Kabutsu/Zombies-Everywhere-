@@ -31,6 +31,7 @@ public class QuestManager : MonoBehaviour {
     //WorldState updates and queries whether that should change anything in QuestManager
     public static void Query(string situation, string varName, System.Object value)
     {
+        //set "value" to a quest's "thisGameObject" or "thisItem" if possible for easy setting/comparing of runtime variables
         try
         {
             if (value.GetType() == typeof(GameObject))
@@ -43,22 +44,25 @@ public class QuestManager : MonoBehaviour {
             }
         } catch (NullReferenceException) { }
 
-        //based on what has just happened, effects might be different, e.g. GoFetches seek out items & conversations but not combat
+        //based on what has just happened, effects might be different, hence big ol' if-statement
         switch (situation)
         {
-            //return the dialogue for this section of conversation
+            //return dialogue for a conversation. Return the dialogue from the first quest matched; if none matched, return some default dialogue
             case "chatStart":
                 bool conversationSet = false;
                 try
                 {
+                    //go through all the quests
                     foreach (string questName in quests.Keys.ToArray())
                     {
+                        //only advance if a previous quest hasn't already been matched
                         if (!conversationSet)
                         {
-                            Quest revertToThis = new Quest(quests[questName]);
+                            Quest revertToThis = new Quest(quests[questName]); //useful for when trying to skip quest steps
                             
                             bool checkForObjective = true;
                             bool exit = false;
+                            //get the first available quest step that is satisfied by the current action, if any
                             do
                             {
                                 if (quests[questName].CurrentStep().IsCompleted()) //current step completed but preconditions of next step possibly not met
@@ -68,17 +72,20 @@ public class QuestManager : MonoBehaviour {
                                     if (quests[questName].CurrentStep().Equals(quests[questName].GetNextStep(quests[questName].Steps())) == false) checkForObjective = true; //if preconditions now met, move on to next step and check for completion
                                 }
                                 
+                                //check to see if this action satisfies the current step
                                 if(checkForObjective)
                                 {
                                     quests[questName].CurrentStep().CheckObjective(value);
                                     
+                                    //if so, set the conversation to what is required
                                     if (quests[questName].CurrentStep().IsCompleted())
                                     {
                                         conversationSet = true;
                                         exit = true;
                                         ((GameObject)value).GetComponent<ChatManager>().SetConversation(quests[questName].CurrentStep().GetDialogue());
-                                        quests[questName].CurrentStep().ApplyResult();
+                                        quests[questName].CurrentStep().ApplyResult(); //apply the results from the quest step
                                     }
+                                    //otherwise, try and skip ahead to the first satisfied quest step, if possible
                                     else if (quests[questName].CurrentStep().IsOptional())
                                     {
                                         Quest.GoFetch temp = (Quest.GoFetch)quests[questName].CurrentStep();
@@ -91,6 +98,7 @@ public class QuestManager : MonoBehaviour {
                                     }
                                     else
                                     {
+                                        //if no steps satisfied, this quest isn't satisfied by this action, so just revert back to how it was
                                         quests[questName] = revertToThis;
                                         quests[questName].CurrentStep().CheckObjective(value);
                                         exit = true;
@@ -98,9 +106,8 @@ public class QuestManager : MonoBehaviour {
                                 }
                             } while (exit == false);
                         }
-                        //Debug.Log("Now on \"" + quests[questName].CurrentStep().GetDescription() + "\" for \"" + questName + "\" after Query(" + situation + ", " + varName + ", " + value.ToString() + ").");
                     }
-                } catch (KeyNotFoundException ex) { /*No Quests to cycle through, so just skip onto default conversations*/ Debug.Log("keyNotfoundException: " + ex.StackTrace); }
+                } catch (KeyNotFoundException) { /*No Quests to cycle through, so just skip onto default conversations*/ }
                 //set default conversation if you're not required to talk to this object for a quest
                 if(!conversationSet)
                 {
@@ -116,6 +123,7 @@ public class QuestManager : MonoBehaviour {
                         case "Idol":
                             try
                             {
+                                //other than for the strictly structured quest of course... then we need to set the dialogue according to where the player is in the quest
                                 if (quests["The Ancient Druid Tome"].GetVar("StepFour").Equals(true))
                                 {
                                     ((GameObject)value).GetComponent<ChatManager>().SetConversation(new Stack<string>(new string[] { "Just the red totem left to interact with!\n[Click to continue]" }));
@@ -150,9 +158,11 @@ public class QuestManager : MonoBehaviour {
                 }
                 break;
 
+                //handle location queries
             case "locationChanged":
                 foreach(string questName in quests.Keys.ToArray())
                 {
+                    //update runtime variables
                     if(varName == "generalLocation" && quests[questName].HasVar("generalLocation"))
                     {
                         quests[questName].SetVar("generalLocation", (string)value);
@@ -163,6 +173,8 @@ public class QuestManager : MonoBehaviour {
                     {
                         quests[questName].SetVar((string)value + "Visited", true);
                     }
+
+                    //all of this is practically the same as for conversations above
 
                     Quest revertToThis = new Quest(quests[questName]);
 
@@ -182,11 +194,13 @@ public class QuestManager : MonoBehaviour {
                         {
                             quests[questName].CurrentStep().CheckObjective(value);
                             
+                            //if this action satisfies a step..
                             if (quests[questName].CurrentStep().IsCompleted())
                             {
                                 exit = true;
-                                quests[questName].CurrentStep().ApplyResult();
+                                quests[questName].CurrentStep().ApplyResult(); //apply the results for the quest step
                             }
+                            //try and find first satisfied step..
                             else if (quests[questName].CurrentStep().IsOptional())
                             {
                                 Quest.GoFetch temp = (Quest.GoFetch)quests[questName].CurrentStep();
@@ -199,24 +213,28 @@ public class QuestManager : MonoBehaviour {
                             }
                             else
                             {
+                                //no steps satisfied in this quest, so revert
                                 quests[questName] = revertToThis;
                                 quests[questName].CurrentStep().CheckObjective(value);
                                 exit = true;
                             }
                         }
                     } while (exit == false);
-
-                    //Debug.Log("Now on \"" + quests[questName].CurrentStep().GetDescription() + "\" for \"" + questName + "\" after Query(" + situation + ", " + varName + ", " + value.ToString() + ").");
+                    
                 }
                 break;
 
+                //when the player picks up or drops an item
             case "ItemsChanged":
                 KeyValuePair<string, int> itemsChanged = ((Dictionary<string, int>)value).First();
                 foreach(string questName in quests.Keys.ToArray())
                 {
+                    //update runtime variables
                     if(quests[questName].HasVar(itemsChanged.Key)) {
                         quests[questName].SetVar(itemsChanged.Key, Inventory.CarryingHowMany(itemsChanged.Key));
                     }
+
+                    //getting the drill now...
 
                     Quest revertToThis = new Quest(quests[questName]);
                     
@@ -236,21 +254,23 @@ public class QuestManager : MonoBehaviour {
                         {
                             quests[questName].CurrentStep().CheckObjective(itemsChanged);
 
+                            //if this step satisfied...
                             if (quests[questName].CurrentStep().IsCompleted() && quests[questName].CurrentStep().PreconditionsMet())
                             {
                                 exit = true;
-                                if (questName == "Your Typical Go-Fetch Quest")
+                                if (questName == "Your Typical Go-Fetch Quest") //yeah so this quest was super buggy
                                 {
                                     GameObject.Find("FPSController").GetComponent<ChatManager>().SetConversation(quests["Your Typical Go-Fetch Quest"].CurrentStep().GetDialogue());
                                     GameObject.Find("FPSController").GetComponent<ChatManager>().StartChat();
                                 }
-                                quests[questName].CurrentStep().ApplyResult();
+                                quests[questName].CurrentStep().ApplyResult(); //apply the result
                             }
                             else if (quests[questName].CurrentStep().IsCompleted() && quests[questName].CurrentStep().PreconditionsMet() == false)
                             {
                                 quests[questName].CurrentStep().Completed(false);
                             }
 
+                            //find the next satisfied step..
                             if (quests[questName].CurrentStep().IsCompleted() == false && quests[questName].CurrentStep().IsOptional() && exit == false)
                             {
                                 Quest.GoFetch temp = (Quest.GoFetch)quests[questName].CurrentStep();
@@ -261,6 +281,7 @@ public class QuestManager : MonoBehaviour {
                                     exit = true;
                                 }
                             }
+                            //revert...
                             else if (quests[questName].CurrentStep().IsCompleted() == false && exit == false)
                             {
                                 quests[questName] = revertToThis;
@@ -269,18 +290,21 @@ public class QuestManager : MonoBehaviour {
                             }
                         }
                     } while (exit == false);
-
-                    //Debug.Log("Now on \"" + quests[questName].CurrentStep().GetDescription() + "\" for \"" + questName + "\" after Query(" + situation + ", " + varName + ", " + value.ToString() + ").");
+                    
                 }
                 break;
 
+                //for shooting a zombie
             case "ZombieDefeated":
                 foreach(string questName in quests.Keys.ToArray())
                 {
+                    //update runtime variables...
                     if(quests[questName].HasVar("zombiesEncountered"))
                     {
                         quests[questName].SetVar("zombiesEncountered", WorldState.GetZombiesEncountered());
                     }
+
+                    //yep. same code as above again
 
                     Quest revertToThis = new Quest(quests[questName]);
 
@@ -300,16 +324,18 @@ public class QuestManager : MonoBehaviour {
                         {
                             quests[questName].CurrentStep().CheckObjective(value);
 
+                            //if this satisfies the step, apply results....
                             if (quests[questName].CurrentStep().IsCompleted())
                             {
                                 exit = true;
-                                if (questName == "Your Typical Go-Fetch Quest")
+                                if (questName == "Your Typical Go-Fetch Quest") //yeah this quest was buggy
                                 {
                                     GameObject.Find("FPSController").GetComponent<ChatManager>().SetConversation(quests["Your Typical Go-Fetch Quest"].CurrentStep().GetDialogue());
                                     GameObject.Find("FPSController").GetComponent<ChatManager>().StartChat();
                                 }
                                 quests[questName].CurrentStep().ApplyResult();
                             }
+                            //find first satisfied step...
                             else if (quests[questName].CurrentStep().IsOptional())
                             {
                                 Quest.GoFetch temp = (Quest.GoFetch)quests[questName].CurrentStep();
@@ -322,6 +348,7 @@ public class QuestManager : MonoBehaviour {
                             }
                             else
                             {
+                                //revert...
                                 quests[questName] = revertToThis;
                                 quests[questName].CurrentStep().CheckObjective(value);
                                 exit = true;
@@ -334,6 +361,7 @@ public class QuestManager : MonoBehaviour {
                 break;
 
             case "chatEnd":
+                //all quests end with a conversation. quests are removed before this conversation ends. if there are no quests when a conversation ends - game won!
                 if (quests.Count == 0) GameObject.Find("FPSController").GetComponent<Inventory>().GameOver("You completed all the quests!\n\nWell done!", true);
                 break;
             default:
@@ -341,9 +369,10 @@ public class QuestManager : MonoBehaviour {
                 break;
         }
 
-        RemoveQuests();
+        RemoveQuests(); //remove any completed quests from the list
     }
 
+    //read the quests in from JSON file
     private void FillQuests() {
         
         quests = new Dictionary<string, Quest>();
@@ -411,7 +440,7 @@ public class QuestManager : MonoBehaviour {
                     }
                 }
 
-                if (step.preconditions.names.Length > 0)
+                if (step.preconditions.names.Length > 0) //turn preconditions to a dictionary
                 {
                     int noOfPreconVariables = step.preconditions.names.Length;
                     for (int i = 0; i < noOfPreconVariables; i++)
@@ -436,7 +465,7 @@ public class QuestManager : MonoBehaviour {
                     }
                 }
 
-                if(step.result.names.Length > 0)
+                if(step.result.names.Length > 0) //turn result to a dictionary
                 {
                     int noOfResultVariables = step.result.names.Length;
                     for (int i = 0; i < noOfResultVariables; i++)
@@ -461,11 +490,16 @@ public class QuestManager : MonoBehaviour {
                     }
                 }
 
+                //get the other variables
                 string anyTag = "";
                 string anyDescription = "";
                 string findWhat = "";
+
+                //ugh... "Your Typical 'Go-Fetch' Quest" required this monstrosity.
+                //sets the tag the player has to find to a random game object or set of game objects
                 if(step.tag == "Anything")
                 {
+                    //these three are nice.. just get the player to find a friendly NPC, pick-up, or shoot any zombie
                     int whatKindOfRandom = UnityEngine.Random.Range(0, 100);
                     if(whatKindOfRandom <= 40)
                     {
@@ -485,12 +519,16 @@ public class QuestManager : MonoBehaviour {
                     }
                     else
                     {
+                        //set the tag to a specific game object, cause that can be done
                         List<GameObject> interactiveObjects = new List<GameObject>();
                         foreach (GameObject friendly in GameObject.FindGameObjectsWithTag("Friendly")) interactiveObjects.Add(friendly);
                         foreach (GameObject zombie in GameObject.FindGameObjectsWithTag("Zombie")) interactiveObjects.Add(zombie);
                         foreach (GameObject pickup in GameObject.FindGameObjectsWithTag("Pickup")) interactiveObjects.Add(pickup);
 
+                        //select a random interactive object
                         anyTag = interactiveObjects.ElementAt(UnityEngine.Random.Range(0, interactiveObjects.Count)).name;
+
+                        //now we need to set the developer-level description for that
                         switch (GameObject.Find(anyTag).tag)
                         {
                             case "Friendly":
@@ -513,6 +551,8 @@ public class QuestManager : MonoBehaviour {
                         }
                     }
 
+                    //ok now, we need to give the player clues as to what to look for next
+                    //set the dialogue for the last quest step to look for the game object we've just determined
                     try
                     {
                         string dialogueString = "";
@@ -558,9 +598,11 @@ public class QuestManager : MonoBehaviour {
                     } catch (InvalidOperationException) { }
                 }
 
+                //okay that's all done... add the step to the current quest!
                 newQuest.AddStep(new Quest.GoFetch((step.tag == "Anything" ? anyTag : step.tag), (step.tag == "Anything" ? anyDescription : step.description), step.generalDescription, newQuest, skipIf, preconditions, step.optional, new Stack<string>(step.dialogue), result));
             }
 
+            //because steps are a stack, they'll currently be in reverse order. fix!
             newQuest.ReverseSteps();
 
             quests.Add(newQuest.GetName(), newQuest); //add the quest to the Dictionary of Quests
@@ -572,11 +614,13 @@ public class QuestManager : MonoBehaviour {
         GameObject.Find("FPSController").GetComponent<Inventory>().InitializeQuests();
     }
 
+    //set a quest to be removed once all effects applied
     public static void RemoveQuestAtQueryEnd(string toRemove)
     {
         questsToRemove.Add(toRemove);
     }
 
+    //remove all the quests that need removing
     public static void RemoveQuests()
     {
         foreach(string toRemove in questsToRemove)
@@ -586,11 +630,13 @@ public class QuestManager : MonoBehaviour {
         
     }
 
+    //getter
     public static Dictionary<string, Quest> Quests()
     {
         return quests;
     }
 
+    //getter
     public static Quest GetQuest(string name)
     {
         try
@@ -602,6 +648,7 @@ public class QuestManager : MonoBehaviour {
         }
     }
 
+    //get the user-friendly description of the current step of "questName"
     public static string GetGeneralDescription(string questName)
     {
         if(GetQuest(questName) == null)
@@ -625,6 +672,7 @@ public class QuestManager : MonoBehaviour {
         private string thisItem;
         private bool started;
 
+        //construct from variables
         public Quest(QuestManager belongsTo, string name, Dictionary<string, System.Object> vars)
         {
             this.belongsTo = belongsTo;
@@ -635,6 +683,7 @@ public class QuestManager : MonoBehaviour {
             started = false;
         }
 
+        //construct from an existing quest. Used in Query(...) for reverting a quest back to how it was
         public Quest(Quest toCopy)
         {
             questName = new string(toCopy.GetName().ToCharArray());
@@ -657,6 +706,7 @@ public class QuestManager : MonoBehaviour {
             started = toCopy.Started();
         }
 
+        //getters & setters...
         public QuestManager BelongsTo()
         {
             return belongsTo;
@@ -677,21 +727,25 @@ public class QuestManager : MonoBehaviour {
             this.started = started;
         }
 
+        //add a variable to the runtime list
         public void AddVar(string name, System.Object var)
         {
             variables.Add(name, var);
         }
 
+        //does this quest have the runtime variable called "name"?
         public bool HasVar(string name)
         {
             return variables.ContainsKey(name);
         }
 
+        //get the value of runtime variable called "name"
         public object GetVar(string name)
         {
             return (HasVar(name) ? variables[name] : new object());
         }
 
+        //set the value of the runtime variable called "name" to "value"
         public void SetVar(string varName, System.Object value)
         {
             if(value.GetType() == typeof(string))
@@ -709,6 +763,7 @@ public class QuestManager : MonoBehaviour {
             }
         }
 
+        //getters and setters...
         public Dictionary<string, System.Object> Variables()
         {
             return variables;
@@ -750,10 +805,10 @@ public class QuestManager : MonoBehaviour {
             currentStep = step;
         }
 
-        //determins which step to advance to (if any) based on completion, preconditons and skip conditions
+        //determines which step to advance to (if any) based on completion, preconditons and skip conditions
         public QuestStep GetNextStep(Stack<QuestStep> steps)
         {
-            if (questName == "Your Typical Go-Fetch Quest")
+            if (questName == "Your Typical Go-Fetch Quest") //this quest was super buggy... just advance to the next step for it
             {
                 questSteps = steps;
                 CurrentStep(questSteps.Pop());
@@ -763,33 +818,38 @@ public class QuestManager : MonoBehaviour {
             {
                 try
                 {
+                    //look past the next step if it can be skipped
                     if (steps.Peek().SkipThisStep())
                     {
                         Stack<QuestStep> stepsPopped = steps;
                         stepsPopped.Pop();
                         return GetNextStep(stepsPopped);
                     }
+                    //if the next step's preconditions haven't been met, go back to the current step
                     else if ((steps.Peek().PreconditionsMet()) == false)
                     {
                         return CurrentStep();
                     }
 
+                    //found a suitable step. pop it, set it to the new current step
                     questSteps = steps;
                     CurrentStep(questSteps.Pop());
                     return CurrentStep();
                 }
                 catch (InvalidOperationException)
                 {
-                    return CurrentStep(); //if we get to the end of the questSteps stack, go back to 
+                    return CurrentStep(); //if we get to the end of the questSteps stack, go back to the current step
                 }
             }
         }
 
+        //push a step onto the stack
         public void AddStep(QuestStep step)
         {
             questSteps.Push(step);
         }
 
+        //reverse the stack
         public void ReverseSteps()
         {
             Stack<QuestStep> temp = new Stack<QuestStep>();
@@ -834,6 +894,7 @@ public class QuestManager : MonoBehaviour {
                 resultApplied = false;
             }
 
+            //getters/setters...
             public void Completed(bool comp)
             {
                 completed = comp;
@@ -880,38 +941,43 @@ public class QuestManager : MonoBehaviour {
             {
                 if (resultApplied == false)
                 {
+                    //if this starts the quest, inform the Inventory so it can update its list of quests
                     if(!belongsTo.Started())
                     {
                         GameObject.Find("FPSController").GetComponent<Inventory>().QuestStarted(belongsTo.GetName());
                         belongsTo.Started(true);
                     }
 
+                    //apply the results
                     foreach (string varName in GetResult().Keys.ToArray())
                     {
-                        if (GetResult()[varName].Equals("thisGameObject"))
+                        if (GetResult()[varName].Equals("thisGameObject")) //apply results to a game object
                         {
                             switch (varName)
                             {
-                                case "destroy":
+                                case "destroy": //destroy it
                                     Destroy(belongsTo.ThisGameObject().gameObject);
                                     break;
 
-                                default:
+                                default: //set it to a runtime variable
                                     belongsTo.variables[varName] = belongsTo.ThisGameObject();
                                     break;
                             }
-                        } else if (GetResult()[varName].Equals("thisItem"))
+                        } else if (GetResult()[varName].Equals("thisItem")) //apply results to an item game object
                         {
                             switch (varName)
                             {
-                                default:
+                                default: //set it to a runtime variable
                                     belongsTo.SetVar(varName, belongsTo.ThisItem());
                                     break;
                             }
+                            //pick up or drop an item
                         } else if(varName == "pickup" || varName == "drop")
                         {
                             resultApplied = true;
                             int lengthOfNumber = 0;
+                            
+                            //work out number of items to pick up/drop
                             foreach (char character in GetResult()[varName].ToString())
                             {
                                 if (character == '_') { break; }
@@ -923,6 +989,7 @@ public class QuestManager : MonoBehaviour {
 
                             string itemNameOriginal = itemName;
 
+                            //pick up "noOfItems" items
                             if (varName == "pickup")
                             {
                                 try
@@ -933,10 +1000,11 @@ public class QuestManager : MonoBehaviour {
                                     itemName = itemNameOriginal;
                                 }
 
-                                Inventory.PickUp(itemName, noOfItems);
-                                Query("ItemsChanged", "Pickup", new Dictionary<string, int>() { { itemName, noOfItems } });
+                                Inventory.PickUp(itemName, noOfItems); //tell inventory
+                                Query("ItemsChanged", "Pickup", new Dictionary<string, int>() { { itemName, noOfItems } }); //does this advance a step?
                             } else
                             {
+                                //drop the items
                                 try
                                 {
                                     itemName = (ToVariableIfExists(itemName) == null ? itemName : (string)ToVariableIfExists(itemName));
@@ -945,27 +1013,30 @@ public class QuestManager : MonoBehaviour {
                                     itemName = itemNameOriginal;
                                 }
 
-                                Inventory.Drop(itemName, noOfItems);
-                                Query("ItemsChanged", "Drop", new Dictionary<string, int>() { { itemName, noOfItems } });
+                                Inventory.Drop(itemName, noOfItems); //tell inventory
+                                Query("ItemsChanged", "Drop", new Dictionary<string, int>() { { itemName, noOfItems } }); //advances a quest?
                             }
                         } else
                         {
-                            belongsTo.variables[varName] = GetResult()[varName];
+                            belongsTo.variables[varName] = GetResult()[varName]; //set to a runtime variable
                         }
                     }
 
                     resultApplied = true;
 
+                    //print to the log
                     string currentVariables = belongsTo.GetName() + " \"" + description + "\" COMPLETED ::: Variables: ";
                     foreach (KeyValuePair<string, System.Object> var in belongsTo.variables) currentVariables += (var.Key + "->" + (var.Value ?? "null") + "; ");
                     DataLog.Print(currentVariables);
 
+                    //if one of the results was to complete the quest
                     if (belongsTo.GetVar("questFinished").Equals(true))
                     {
-                        RemoveQuestAtQueryEnd(belongsTo.GetName());
-                        DataLog.Print("Quest \"" + belongsTo.GetName() + "\" completed!");
-                        GameObject.Find("FPSController").GetComponent<Inventory>().QuestFinished(belongsTo.GetName());
+                        RemoveQuestAtQueryEnd(belongsTo.GetName()); //remove this quest
+                        DataLog.Print("Quest \"" + belongsTo.GetName() + "\" completed!"); //print to the log
+                        GameObject.Find("FPSController").GetComponent<Inventory>().QuestFinished(belongsTo.GetName()); //inform the Inventory
 
+                        //tame all the zombies if it's the ancient druid tome what was completed
                         if (belongsTo.GetName() == "The Ancient Druid Tome")
                         {
                             foreach (GameObject zombie in GameObject.FindGameObjectsWithTag("Zombie"))
@@ -974,10 +1045,12 @@ public class QuestManager : MonoBehaviour {
                     }
                     else
                     {
+                        //now try and get the next queststep
                         belongsTo.GetNextStep(belongsTo.Steps());
-                        DataLog.Print("Now on \"" + belongsTo.GetName() + " \"" + belongsTo.CurrentStep().GetDescription() + "\"");
+                        DataLog.Print("Now on \"" + belongsTo.GetName() + " \"" + belongsTo.CurrentStep().GetDescription() + "\""); //log it
                     }
 
+                    //update user-friendly description in Inventory
                     GameObject.Find("FPSController").GetComponent<Inventory>().UpdateDescription(belongsTo.GetName(), belongsTo.CurrentStep().GetGeneralDescription());
                 }
             }
@@ -1032,15 +1105,20 @@ public class QuestManager : MonoBehaviour {
                 else return CheckDictionaryAgainstValues(preconditions, false, false);
             }
 
+            //general method that checks if pairs in "toCheck" are "returnIf" and return "valToReturnIf" if so
+            //used by SkipIf() and PreconditonsMet() to check to see if the step should be skipped or if it can be advanced to
             private bool CheckDictionaryAgainstValues(Dictionary<string, System.Object> toCheck, bool returnIf, bool valToReturnIf)
             {
+                //go through the keys
                 foreach (string variableName in toCheck.Keys.ToArray())
                 {
+                    //default: check the key equals a value
                     string operation = "equals";
                     int intValue = 0;
 
                     System.Object checkAgainst = toCheck[variableName];
 
+                    //sometimes you might want to see if a value is NOT something, this allows for that
                     bool invertSearch = false;
                     if (checkAgainst != null && checkAgainst.GetType() == typeof(string))
                     {
@@ -1049,6 +1127,7 @@ public class QuestManager : MonoBehaviour {
 
                         try
                         {
+                            //might want to be checking against a number and use other operators than "=", check for that
                             if (((string)toCheck[variableName])[0] == '<')
                             {
                                 operation = "lessThan";
@@ -1060,14 +1139,16 @@ public class QuestManager : MonoBehaviour {
                                 intValue = Convert.ToInt32(((string)toCheck[variableName]).Substring(2));
                             }
 
+                            //invert search? (NOT something)
                             invertSearch = (((string)toCheck[variableName]).Substring(0, 4) == "NOT_");
                             checkAgainst = ((string)toCheck[variableName] == "NOT_null" ? null : checkAgainst);
                         } catch (ArgumentOutOfRangeException) { }
                     }
                     
-                    //if one of the quest's variables is matched by the skip dictionary, skip the step
+                    //if we are checking against one of the quest's runtime variables
                     if (belongsTo.HasVar(variableName))
                     {
+                        //comparisons to return the correct value
                         switch (operation)
                         {
                             case "equals":
@@ -1089,11 +1170,13 @@ public class QuestManager : MonoBehaviour {
                         }
 
                     }
-                    //if a variable in the WorldState is matched by the skip dictionary, skip the step
+                    //if we are checking against a WorldState value
                     else
                     {
+                        //get the value of the WorldState value
                         System.Object worldStateVal = belongsTo.BelongsTo().worldState.GetType().GetField(variableName).GetValue(belongsTo.BelongsTo().worldState);
                         
+                        //comparisons to return the correct value
                         switch (operation)
                         {
                             case "equals":
@@ -1122,6 +1205,7 @@ public class QuestManager : MonoBehaviour {
                 return !valToReturnIf;
             }
 
+            //getter/setter
             public Quest BelongsTo()
             {
                 return belongsTo;
@@ -1134,6 +1218,9 @@ public class QuestManager : MonoBehaviour {
 
         }
 
+        //originally, there would be multiple types of quest steps.
+        //although this is deprecated in my head, it's still used.
+        //basically for checking that the player has fetched (interacted with) a particular object or an object with a particular tag
         public class GoFetch : QuestStep
         {
             private string fetchTag;
@@ -1142,6 +1229,7 @@ public class QuestManager : MonoBehaviour {
             //check whether this object is the object (or has the tag) you're supposed to fetch
             public override void CheckObjective(System.Object checkAgainst)
             {
+                //keyValuePairs used for pick-ups
                 if (checkAgainst.GetType() == typeof(KeyValuePair<string, int>))
                 {
                     if (Tag() == "Pickup")
@@ -1152,6 +1240,7 @@ public class QuestManager : MonoBehaviour {
                 }
                 else
                 {
+                    //check for a correct tag or game object match
                     try
                     {
                         GameObject checkAgainstObj = (GameObject)checkAgainst;

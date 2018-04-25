@@ -24,6 +24,7 @@ public class MainMenuController : MonoBehaviour
     private string about = "You wake up in the woods with just your handy pistol for company. The zombie apocalypse has been consuming the world for a month now...\n\nThis game is all about how narratives are experienced! Please engage in as many quests and plotlines as possible and see what happens.\n\nBe aware that the log.txt file will be overwritten each time you click \"Start\".";
     private string credits = "All assets (excluding those in the \"/Scripts\" directory) from the Unity Asset Store or Unity Standard Assets unless mentioned below.\n\nFonts 'A Love of Thunder' by Cumberland Fontworks, 'Feast of Flesh' by Blambot, both sourced from Dafont.com.\nMusic 'When The Mockingbirds Are Singing In The Wildwood' by Frank C Stanley, 'Bring Back My Blushing Rose' by John Steel, 'The Spirit of Russian Love' by Zinaida Trokai, all sourced from FreeMusicArchive.org.\nMain menu background image sourced from hdwallsource.com.";
 
+    //show the controls on start-up
     void Start()
     {
         loadingCanvas.GetComponentInChildren<UnityEngine.UI.Image>().enabled = false;
@@ -45,29 +46,18 @@ public class MainMenuController : MonoBehaviour
 
     }
 
+    //show the loading text and load the forest level
     public void StartGame()
     {
         if (!loading)
         {
             loading = true;
             DataLog.CreateNewLog();
-            //StartCoroutine(LoadForestAsync());
             StartCoroutine(ShowLoading());
         }
     }
 
-    private IEnumerator LoadForestAsync()
-    {
-        loadingBar.SetActive(true);
-        AsyncOperation loader = SceneManager.LoadSceneAsync("Forest");
-
-        while(!loader.isDone)
-        {
-            loadingBar.GetComponent<UnityEngine.UI.Slider>().value = loader.progress;
-            yield return null;
-        }
-    }
-
+    //fade the screen to black and fade in the loading text
     private IEnumerator ShowLoading()
     {
         loadingCanvas.enabled = true;
@@ -85,21 +75,16 @@ public class MainMenuController : MonoBehaviour
             loadingText.color = new Color(1f, 1f, 1f, i);
             loadingPanel.color = new Color(0f, 0f, 0f, i);
 
-            //loadingBarBackground.color = new Color(1f, 1f, 1f, i);
-            //loadingBarProgress.color = new Color((221 / 255f), (8f / 255f), (8f / 255f), i * (210f / 255f));
-
             yield return null;
         }
 
         loadingText.color = Color.white;
         loadingPanel.color = Color.black;
 
-        //loadingBarBackground.color = Color.white;
-        //loadingBarProgress.color = new Color((221 / 255f), (8f / 255f), (8f / 255f), (210f / 255f));
-
-        SceneManager.LoadScene("Forest");
+        SceneManager.LoadScene("Forest"); //load the forest scene
     }
 
+    //show the controls text
     public void ShowControls()
     {
         if (!loading)
@@ -109,6 +94,7 @@ public class MainMenuController : MonoBehaviour
         }
     }
 
+    //show the about text
     public void ShowAbout()
     {
         if (!loading)
@@ -118,6 +104,7 @@ public class MainMenuController : MonoBehaviour
         }
     }
 
+    //show the credits text
     public void ShowCredits()
     {
         if (!loading)
@@ -127,6 +114,7 @@ public class MainMenuController : MonoBehaviour
         }
     }
 
+    //quit the game
     public void ExitGame()
     {
         if (!loading)

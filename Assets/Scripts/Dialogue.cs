@@ -16,12 +16,14 @@ public class Dialogue : MonoBehaviour {
 		
 	}
 
+    //display text on screen
     public void ShowText(string message) {
         UnityEngine.UI.Text guiText = this.GetComponent<UnityEngine.UI.Text>();
         guiText.text = message;
         if (!guiText.enabled) guiText.enabled = true;
     }
 
+    //clear the text from the screen
     public void ClearText() {
         this.GetComponent<UnityEngine.UI.Text>().enabled = false;
     }
